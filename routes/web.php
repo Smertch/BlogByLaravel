@@ -36,6 +36,7 @@ Route::get('/reset-password/{token}', function (Request $request) {
     return view('auth.reset-password', ['request' => $request]);
 })->middleware('web')->name('password.reset');
 
+
 // Swagger UI / OpenAPI spec
 Route::get('/swagger', fn () => view('swagger'))->name('swagger');
 Route::get('/swagger/spec', [SwaggerController::class, 'spec'])->name('swagger.spec');
