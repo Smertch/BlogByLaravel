@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login / Sign Up | White-Green Style with Bootstrap 5</title>
+    <!-- Bootstrap 5 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Font Awesome for icons (GitHub, LinkedIn) -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <link rel="stylesheet" href="{{ asset('css/auth.css') }}">
+</head>
+<body class="d-flex align-items-center">
+<div class="container py-4">
+    <div class="row justify-content-center">
+        <div class="col-12 col-lg-10">
+            <div class="card card-custom">
+                <div class="row g-0">
+                    <!-- Left panel with illustration -->
+                    <div class="col-md-5 brand-panel">
+                        <svg viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg" style="max-width: 280px; width: 100%; height: auto; margin-bottom: 1.8rem;">
+                            <circle cx="100" cy="100" r="90" fill="#C0F0DD" stroke="#3fa87e" stroke-width="2" stroke-dasharray="6 6" />
+                            <path d="M70 120 L100 45 L130 120 L110 120 L100 95 L90 120 L70 120Z" fill="#28a06b" />
+                            <circle cx="100" cy="80" r="12" fill="#F1FFE8" stroke="#3b946f" stroke-width="2" />
+                            <path d="M60 130 L140 130 L135 150 L65 150 L60 130Z" fill="#85c9a8" />
+                            <circle cx="130" cy="100" r="8" fill="#FFF9C9" />
+                            <circle cx="70" cy="100" r="8" fill="#FFECB3" />
+                            <path d="M45 100 Q 60 70 90 70" stroke="#4caa7a" stroke-width="4" stroke-linecap="round" fill="none" />
+                            <path d="M155 100 Q 140 75 115 70" stroke="#4caa7a" stroke-width="4" stroke-linecap="round" fill="none" />
+                        </svg>
+                        <h2>NatureAuth</h2>
+                        <p>eco-friendly login · clean signup</p>
+                        <div class="brand-badge">⚡ white-green blend</div>
+                    </div>
+
+                    <!-- Right panel with forms -->
+                    <div class="col-md-7 forms-section">
+                        @yield('content')
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Bootstrap JS (optional, only for toggling if needed, but we use vanilla JS) -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+
+<script src="{{ asset('js/auth.js') }}"></script>
+
+</body>
+</html>

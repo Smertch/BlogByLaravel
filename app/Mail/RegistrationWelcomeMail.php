@@ -1,0 +1,46 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Mail;
+
+use App\Models\User;
+use Illuminate\Bus\Queueable;
+use Illuminate\Contracts\Queue\ShouldQueue;
+use Illuminate\Mail\Mailable;
+use Illuminate\Mail\Mailables\Attachment;
+use Illuminate\Mail\Mailables\Content;
+use Illuminate\Mail\Mailables\Envelope;
+use Illuminate\Queue\SerializesModels;
+
+final class RegistrationWelcomeMail extends Mailable implements ShouldQueue
+{
+    use Queueable, SerializesModels;
+
+    public function __construct(public User $user) {}
+
+    public function envelope(): Envelope
+    {
+        return new Envelope(
+            subject: __('auth.registration_welcome_subject', ['app' => config('app.name')]),
+        );
+    }
+
+    public function content(): Content
+    {
+        return new Content(
+            markdown: 'emails.registration-welcome',
+            with: [
+                'user' => $this->user,
+            ],
+        );
+    }
+
+    /**
+     * @return array<int, Attachment>
+     */
+    public function attachments(): array
+    {
+        return [];
+    }
+}

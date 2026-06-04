@@ -1,0 +1,246 @@
+name: blog
+
+services:
+    mailhog:
+        image: 'mailhog/mailhog:latest'
+        ports:
+            - '1516:8025'
+
+    redis:
+        image: 'redis:alpine'
+
+    rabbitmq:
+        image: 'rabbitmq:3.13-management-alpine'
+        ports:
+            # Веб-UI (HTTP): http://localhost:1522 — логин/пароль как RABBITMQ_DEFAULT_*
+            - '1522:15672'
+            # AMQP (не браузер): клиенты очереди с хоста — localhost:1523
+            - '1523:5672'
+        environment:
+            RABBITMQ_DEFAULT_USER: blog
+            RABBITMQ_DEFAULT_PASS: blog
+        healthcheck:
+            test: ['CMD', 'rabbitmq-diagnostics', '-q', 'ping']
+            interval: 10s
+            timeout: 5s
+            retries: 5
+            start_period: 30s
+
+    mysql:
+        image: 'mysql:8.0'
+        working_dir: /application
+        volumes:
+            - '.:/application'
+            - blog_mysql_data:/var/lib/mysql
+        environment:
+            - MYSQL_ROOT_PASSWORD=password
+            - MYSQL_DATABASE=blog
+            - MYSQL_USER=user
+            - MYSQL_PASSWORD=password
+        ports:
+            - '1517:3306'
+        healthcheck:
+            test: ['CMD', 'mysqladmin', 'ping', '-h', '127.0.0.1', '-uuser', '-ppassword']
+            interval: 5s
+            timeout: 5s
+            retries: 12
+            start_period: 30s
+
+    webserver:
+        build: docker/nginx
+        image: blog-nginx
+        pull_policy: never
+        working_dir: /application
+        depends_on:
+            - php-fpm
+        volumes:
+            - '.:/application'
+        ports:
+            - '1515:80'
+
+    php-fpm:
+        build: docker/php-fpm
+        image: blog-php-fpm
+        pull_policy: never
+        working_dir: /application
+        environment:
+            DB_HOST: mysql
+            DB_PORT: '3306'
+            QUEUE_CONNECTION: rabbitmq
+            RABBITMQ_HOST: rabbitmq
+            RABBITMQ_PORT: '5672'
+            RABBITMQ_USER: blog
+            RABBITMQ_PASSWORD: blog
+            RABBITMQ_VHOST: /
+        depends_on:
+            mysql:
+                condition: service_healthy
+            rabbitmq:
+                condition: service_healthy
+        volumes:
+            - '.:/application'
+            - './docker/php-fpm/php-ini-overrides.ini:/etc/php/8.5/fpm/conf.d/99-overrides.ini'
+            - './docker/php-fpm/php-ini-overrides.ini:/etc/php/8.5/cli/conf.d/99-overrides.ini'
+            - './docker/php-fpm/zz-status.conf:/etc/php/8.5/fpm/pool.d/zz-status.conf:ro'
+
+    queue-worker:
+        build: docker/php-fpm
+        image: blog-php-fpm
+        pull_policy: never
+        working_dir: /application
+        command: ['php', 'artisan', 'queue:work', 'rabbitmq', '--sleep=3', '--tries=3', '--max-time=3600']
+        restart: unless-stopped
+        environment:
+            DB_HOST: mysql
+            DB_PORT: '3306'
+            QUEUE_CONNECTION: rabbitmq
+            RABBITMQ_HOST: rabbitmq
+            RABBITMQ_PORT: '5672'
+            RABBITMQ_USER: blog
+            RABBITMQ_PASSWORD: blog
+            RABBITMQ_VHOST: /
+        depends_on:
+            mysql:
+                condition: service_healthy
+            rabbitmq:
+                condition: service_healthy
+        volumes:
+            - '.:/application'
+            - './docker/php-fpm/php-ini-overrides.ini:/etc/php/8.5/fpm/conf.d/99-overrides.ini'
+            - './docker/php-fpm/php-ini-overrides.ini:/etc/php/8.5/cli/conf.d/99-overrides.ini'
+
+    node-exporter:
+        image: prom/node-exporter:v1.8.2
+        pid: host
+        command:
+            - '--path.rootfs=/host'
+            - '--path.procfs=/host/proc'
+            - '--path.sysfs=/host/sys'
+            - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc|rootfs/var/lib/docker|rootfs/run/containerd)($$|/)'
+        # Без rslave: на части хостов «/» не в режиме shared/slave — Docker отказывается монтировать.
+        volumes:
+            - '/:/host:ro'
+
+    mysqld-exporter:
+        image: prom/mysqld-exporter:v0.16.0
+        # v0.16+ не использует DATA_SOURCE_NAME — только флаги и MYSQLD_EXPORTER_PASSWORD (см. README exporter).
+        environment:
+            MYSQLD_EXPORTER_PASSWORD: password
+        command:
+            - '--mysqld.address=mysql:3306'
+            - '--mysqld.username=root'
+        depends_on:
+            mysql:
+                condition: service_healthy
+
+    redis-exporter:
+        image: oliver006/redis_exporter:v1.66.0
+        environment:
+            REDIS_ADDR: redis:6379
+        depends_on:
+            - redis
+
+    nginx-exporter:
+        image: nginx/nginx-prometheus-exporter:latest
+        command:
+            - '-nginx.scrape-uri=http://webserver:80/nginx-status'
+        depends_on:
+            - webserver
+
+    php-fpm-exporter:
+        image: hipages/php-fpm_exporter:latest
+        environment:
+            PHP_FPM_SCRAPE_URI: tcp://php-fpm:9000/status
+        depends_on:
+            - php-fpm
+
+    blackbox-exporter:
+        image: prom/blackbox-exporter:v0.25.0
+        volumes:
+            - './docker/prometheus/blackbox.yml:/config/blackbox.yml:ro'
+        command:
+            - '--config.file=/config/blackbox.yml'
+        depends_on:
+            - webserver
+
+    cadvisor:
+        # Официальный образ gcr.io/cadvisor/cadvisor — при проблемах с gcloud используйте сборку с Docker Hub:
+        image: zcube/cadvisor:latest
+        privileged: true
+        ports:
+            - '1520:8080'
+        # docker_only + доступ к сокету Docker — в Prometheus появляются label name/image (нужны дашбордам вроде «Docker monitoring»).
+        command:
+            - '-logtostderr'
+            - '--docker_only=true'
+        volumes:
+            - '/:/rootfs:ro'
+            - '/var/run:/var/run:ro'
+            - '/var/run/docker.sock:/var/run/docker.sock:rw'
+            - '/sys:/sys:ro'
+            - '/var/lib/docker/:/var/lib/docker:ro'
+
+    prometheus:
+        image: prom/prometheus:v3.1.0
+        command:
+            - '--config.file=/etc/prometheus/prometheus.yml'
+            - '--storage.tsdb.path=/prometheus'
+            - '--web.enable-lifecycle'
+        ports:
+            - '1518:9090'
+        volumes:
+            - 'blog_prometheus_data:/prometheus'
+            - './docker/prometheus:/etc/prometheus:ro'
+        depends_on:
+            - cadvisor
+            - node-exporter
+            - mysqld-exporter
+            - redis-exporter
+            - nginx-exporter
+            - php-fpm-exporter
+            - blackbox-exporter
+
+    loki:
+        image: grafana/loki:3.4.2
+        ports:
+            - '1521:3100'
+        volumes:
+            - 'blog_loki_data:/loki'
+            - './docker/loki/local-config.yaml:/etc/loki/config.yaml:ro'
+        command:
+            - '-config.file=/etc/loki/config.yaml'
+
+    promtail:
+        image: grafana/promtail:3.4.2
+        volumes:
+            - '/var/run/docker.sock:/var/run/docker.sock:ro'
+            - './docker/promtail/config.yml:/etc/promtail/config.yml:ro'
+            - './storage/logs:/var/laravel-logs:ro'
+            - 'blog_promtail_positions:/tmp'
+        command:
+            - '-config.file=/etc/promtail/config.yml'
+        depends_on:
+            - loki
+
+    grafana:
+        image: grafana/grafana:11.5.2
+        environment:
+            GF_SECURITY_ADMIN_USER: admin
+            GF_SECURITY_ADMIN_PASSWORD: admin
+            GF_USERS_ALLOW_SIGN_UP: 'false'
+            GF_SERVER_ROOT_URL: 'http://localhost:1519'
+        ports:
+            - '1519:3000'
+        volumes:
+            - 'blog_grafana_data:/var/lib/grafana'
+            - './docker/grafana/provisioning:/etc/grafana/provisioning:ro'
+        depends_on:
+            - prometheus
+            - loki
+
+volumes:
+    blog_mysql_data:
+    blog_prometheus_data:
+    blog_grafana_data:
+    blog_loki_data:
+    blog_promtail_positions:

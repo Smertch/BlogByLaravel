@@ -1,0 +1,16 @@
+#!/bin/bash
+# Запуск Composer через Docker (PHP с intl). Обход проблемы с отсутствующим intl на хосте.
+# Использование: /var/www/blog/composer-php global require laravel/installer
+#              cd /path/to/project && /var/www/blog/composer-php create-project laravel/laravel myapp
+
+COMPOSER_HOME="${COMPOSER_HOME:-$HOME/.config/composer}"
+BLOG_DIR="$(cd "$(dirname "$0")" && pwd)"
+
+# Официальный образ Composer (PHP + intl)
+docker run --rm -it \
+  -e COMPOSER_HOME=/tmp/composer \
+  -v "$COMPOSER_HOME:/tmp/composer" \
+  -v "$(pwd):/app" \
+  -w /app \
+  composer:latest \
+  composer "$@"

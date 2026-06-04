@@ -1,0 +1,111 @@
+stages:
+  - lint
+  - test
+  - stage_build
+  - stage_deploy_dev
+  - stage_deploy_prd
+  - stage_final
+
+variables:
+  OWNER_NAME: "Pomaz Sergii"
+  CICD_VERSION: "v1.0"
+  LOG_FILE_NAME: "$CI_COMMIT_BRANCH-$CI_COMMIT_SHORT_SHA.txt"
+  COMPOSER_ALLOW_SUPERUSER: "1"
+  COMPOSER_NO_INTERACTION: "1"
+  COMPOSER_CACHE_DIR: "${CI_PROJECT_DIR}/.composer-cache"
+
+default:
+  interruptible: true
+  artifacts:
+    when: always
+    paths:
+      - $LOG_FILE_NAME
+
+.php_with_composer: &php_with_composer
+  image: php:8.5-cli-bookworm
+  cache:
+    key:
+      files:
+        - composer.lock
+    paths:
+      - .composer-cache/
+      - vendor/
+
+lint:
+  <<: *php_with_composer
+  stage: lint
+  before_script:
+    - apt-get update -qq
+    - apt-get install -y -qq --no-install-recommends git unzip libzip-dev libicu-dev libsqlite3-dev
+    - docker-php-ext-install -j"$(nproc)" intl pdo_sqlite zip bcmath
+    - curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer
+    - composer install --no-progress --prefer-dist --ansi
+    - composer validate --no-check-publish
+  script:
+    - echo "---Lint (Laravel Pint)---" > "$LOG_FILE_NAME"
+    - vendor/bin/pint --test
+    - echo "---Lint completed---" >> "$LOG_FILE_NAME"
+
+test:
+  <<: *php_with_composer
+  stage: test
+  needs:
+    - lint
+  before_script:
+    - apt-get update -qq
+    - apt-get install -y -qq --no-install-recommends git unzip libzip-dev libicu-dev libsqlite3-dev
+    - docker-php-ext-install -j"$(nproc)" intl pdo_sqlite zip bcmath
+    - curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer
+    - composer install --no-progress --prefer-dist --ansi
+  script:
+    - echo "---Tests (php artisan test)---" >> "$LOG_FILE_NAME"
+    - test -f .env || cp .env.example .env
+    - php artisan key:generate --force
+    - php artisan config:clear --ansi
+    - php artisan test --ansi
+    - echo "---Tests completed---" >> "$LOG_FILE_NAME"
+
+image: registry.gitlab.com/gitlab-org/cloud-deploy/aws-base:latest
+
+build_job:
+  stage: stage_build
+  needs:
+    - test
+  script:
+    - echo "---Build Started---" >> "$LOG_FILE_NAME"
+    - echo "Building..." >> "$LOG_FILE_NAME"
+    - echo "---Build Completed---" >> "$LOG_FILE_NAME"
+
+deploy_to_dev_job:
+  stage: stage_deploy_dev
+  needs:
+    - build_job
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "dev"'
+  script:
+    - echo "---Deploy to DEV---" >> "$LOG_FILE_NAME"
+    - echo "Deploy..." >> "$LOG_FILE_NAME"
+    - echo "---Deploy to DEV Completed---" >> "$LOG_FILE_NAME"
+
+deploy_to_prd_job:
+  stage: stage_deploy_prd
+  needs:
+    - build_job
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "master"'
+  script:
+    - echo "---Deploy to PRD---" >> "$LOG_FILE_NAME"
+    - echo "Deploy..." >> "$LOG_FILE_NAME"
+    - echo "---Deploy to PRD Completed---" >> "$LOG_FILE_NAME"
+
+finish_job:
+  stage: stage_final
+  needs:
+    - job: build_job
+  script:
+    - echo "---Finish job Started---" >> "$LOG_FILE_NAME"
+    - echo "Finish!!!..." >> "$LOG_FILE_NAME"
+    - echo "Owner of the Pipeline $CICD_VERSION is $OWNER_NAME" >> "$LOG_FILE_NAME"
+    - cat "$LOG_FILE_NAME"
+    - ls -l
+    - echo "---FINISH---"
