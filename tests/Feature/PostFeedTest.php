@@ -19,7 +19,7 @@ final class PostFeedTest extends TestCase
     protected function setUp(): void
     {
         $testDatabaseConnection = $_ENV['DB_CONNECTION'] ?? $_SERVER['DB_CONNECTION'] ?? null;
-        if (!in_array('sqlite', PDO::getAvailableDrivers(), true) && $testDatabaseConnection === 'sqlite') {
+        if (! in_array('sqlite', PDO::getAvailableDrivers(), true) && $testDatabaseConnection === 'sqlite') {
             self::markTestSkipped('The pdo_sqlite extension is not installed in this PHP runtime.');
         }
 

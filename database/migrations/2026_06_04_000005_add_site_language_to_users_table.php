@@ -9,7 +9,7 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('users', function (Blueprint $table): void {
-            if (!Schema::hasColumn('users', 'site_language')) {
+            if (! Schema::hasColumn('users', 'site_language')) {
                 $table->string('site_language', 3)->default('EN')->after('role_id');
             }
         });

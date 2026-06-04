@@ -38,7 +38,7 @@ final class SiteUi
     }
 
     /**
-     * @param array<string, string> $replace
+     * @param  array<string, string>  $replace
      */
     public function trans(string $alias, array $replace = [], ?SiteLanguage $language = null): string
     {
