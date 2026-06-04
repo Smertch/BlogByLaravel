@@ -20,7 +20,7 @@
         "laravel/fortify": "^1.36",
         "laravel/framework": "^13.0",
         "laravel/tinker": "^3.0",
-        "vladimir-yuldashev/laravel-queue-rabbitmq": "14.4.99"
+        "vladimir-yuldashev/laravel-queue-rabbitmq": "^14.4.99"
     },
     "require-dev": {
         "fakerphp/faker": "^1.23",
