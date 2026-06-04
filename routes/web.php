@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Account\IndexController;
+use App\Http\Controllers\Account\UpdateController;
 use App\Http\Controllers\LocaleController;
 use App\Http\Controllers\PostController;
 use App\Http\Controllers\RssFeedController;
@@ -21,6 +22,8 @@ Route::middleware('auth')->group(function (): void {
     Route::get('/', [PostController::class, 'index'])->name('home');
     Route::post('/locale', LocaleController::class)->name('locale.switch');
     Route::get('/account', IndexController::class)->name('index');
+    Route::post('/account/profile', [UpdateController::class, 'updateProfile'])->name('account.profile.update');
+    Route::post('/account/password', [UpdateController::class, 'updatePassword'])->name('account.password.update');
     Route::post('/posts', [PostController::class, 'store'])->name('posts.store');
     Route::put('/posts/{post}', [PostController::class, 'update'])->name('posts.update');
     Route::delete('/posts/{post}', [PostController::class, 'destroy'])->name('posts.destroy');

@@ -10,7 +10,7 @@ return new class extends Migration
     {
         Schema::table('posts', function (Blueprint $table): void {
             if (!Schema::hasColumn('posts', 'content')) {
-                $table->text('content')->default('')->after('title');
+                $table->text('content')->after('title');
             }
         });
     }

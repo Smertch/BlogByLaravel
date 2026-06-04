@@ -9,6 +9,12 @@ class IndexController extends Controller
 {
     public function __invoke(): View
     {
-        return view('account.index');
+        $user = auth()->user();
+        $posts = $user->posts()->latest()->get();
+
+        return view('account.index', [
+            'user' => $user,
+            'posts' => $posts,
+        ]);
     }
 }

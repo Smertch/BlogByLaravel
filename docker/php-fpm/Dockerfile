@@ -16,6 +16,7 @@ RUN apt-get update \
         php8.5-xml \
         php8.5-redis \
         php8.5-sqlite3 \
+        php8.5-zip \
         php8.5-xdebug \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/* /usr/share/doc/*
